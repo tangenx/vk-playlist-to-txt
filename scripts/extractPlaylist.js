@@ -4,46 +4,34 @@
     const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
     async function loadFullPlaylist() {
-        let playlistTitle = document.querySelector('.AudioPlaylistSnippet__title--main');
-
-        if (playlistTitle == null) {
-          // Музыка пользователя
-          const spinner = document.querySelector('.CatalogBlock__autoListLoader');
-          let pageHeight = 0;
-          do {
-            pageHeight = document.body.clientHeight;
-            scroll(pageHeight);
-            await delay(400);
-          } while (
-            pageHeight < document.body.clientHeight ||
-            spinner.style.display === ''
-          );
-
-          return;
-        }
-
-        // Плейлист на отдельной странице
-        const showButton = document.querySelector('.ActionButton--all');
-        
-        if (showButton !== null) {
-          showButton.click();
-
-          return delay(1000);
-        }
-
-        return;
+       return;
     }
   
     function parsePlaylist() {
-      return [...document.querySelectorAll('.audio_row__performer_title')].map(
-        (row) => {
-          const artist = row.querySelector('.audio_row__performers').textContent;
-          const title = row.querySelector('._audio_row__title a').textContent;
-          return [artist, title]
-            .map((v) => v.replace(/[\s\n ]+/g, ' ').trim())
-            .join(' - ');
-        },
-      );
+        if (document.querySelectorAll('[data-testid="MusicTrackRow_Info"]').length) {
+            return [...document.querySelectorAll('[data-testid="MusicTrackRow_Info"]')].map(
+                (row) => {
+                  const artist = row.children[0].textContent;
+                  const title = row.children[1].textContent;
+                  return [artist, title]
+                    .map((v) => v.replace(/[\s\n ]+/g, ' ').trim())
+                    .join(' - ');
+                },
+              );
+        } else {
+             return [...document.querySelectorAll('.audio_row__performer_title')].map(
+                (row) => {
+                  const artist = row.querySelector('.audio_row__performers').textContent;
+                  const title = row.querySelector('._audio_row__title a').textContent;
+                  return [artist, title]
+                    .map((v) => v.replace(/[\s\n ]+/g, ' ').trim())
+                    .join(' - ');
+                },
+             );
+        const userTitle = document.querySelector('.ui_tab.ui_tab_sel');
+        return userTitle.textContent.trim();
+        }
+      
     }
   
     function saveToFile(filename, content) {
@@ -68,7 +56,7 @@
         }
 
         const userTitle = document.querySelector('.ui_tab.ui_tab_sel');
-        return userTitle.textContent.trim();
+        return 'Мне нравится';
     }
   
     await loadFullPlaylist();
