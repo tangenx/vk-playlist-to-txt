@@ -1,78 +1,90 @@
 (async () => {
-    // SOURCE FROM https://github.com/fivemru/export-vk-playlist-to-file
-    const scroll = (top) => window.scrollTo({ top });
-    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    async function loadFullPlaylist() {
-        let playlistTitle = document.querySelector('.AudioPlaylistSnippet__title--main');
+const clean = text => (text || '').replace(/\s+/g, ' ').trim();
 
-        if (playlistTitle == null) {
-          // Музыка пользователя
-          const spinner = document.querySelector('.CatalogBlock__autoListLoader');
-          let pageHeight = 0;
-          do {
-            pageHeight = document.body.clientHeight;
-            scroll(pageHeight);
-            await delay(400);
-          } while (
-            pageHeight < document.body.clientHeight ||
-            spinner.style.display === ''
-          );
 
-          return;
+function parseTracks() {
+    const rows = [...document.querySelectorAll('[data-testid="MusicTrackRow_Info"]')];
+    const tracks = [];
+
+    for (const row of rows) {
+        const links = [...row.querySelectorAll('a[href]')];
+
+        // В найденной разметке информация о треке
+        // содержит ссылки на название и исполнителя.
+        const values = links
+            .map(link => clean(link.innerText || link.textContent))
+            .filter(Boolean);
+
+        const uniqueValues = [...new Set(values)];
+
+        if (uniqueValues.length >= 2) {
+            tracks.push(`${uniqueValues[1]} - ${uniqueValues[0]}`);
+        } else if (uniqueValues.length === 1) {
+            tracks.push(uniqueValues[0]);
         }
-
-        // Плейлист на отдельной странице
-        const showButton = document.querySelector('.ActionButton--all');
-        
-        if (showButton !== null) {
-          showButton.click();
-
-          return delay(1000);
-        }
-
-        return;
-    }
-  
-    function parsePlaylist() {
-      return [...document.querySelectorAll('.audio_row__performer_title')].map(
-        (row) => {
-          const artist = row.querySelector('.audio_row__performers').textContent;
-          const title = row.querySelector('._audio_row__title a').textContent;
-          return [artist, title]
-            .map((v) => v.replace(/[\s\n ]+/g, ' ').trim())
-            .join(' - ');
-        },
-      );
-    }
-  
-    function saveToFile(filename, content) {
-      const data = content.replace(/\n/g, '\r\n');
-      const blob = new Blob([data], { type: 'text/plain' });
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = URL.createObjectURL(blob);
-      link.target = '_blank';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     }
 
-    function getPlaylistTitle() {
-        // Плейлист на отдельной странице
-        const playlistTitle = document.querySelector('.AudioPlaylistSnippet__title--main');
+    return [...new Set(tracks)];
+}
 
-        if (playlistTitle !== null) {
-          return playlistTitle.textContent.trim();
-        }
+function saveToFile(filename, content) {
+    const blob = new Blob(['\uFEFF', content], {
+        type: 'text/plain;charset=utf-8'
+    });
 
-        const userTitle = document.querySelector('.ui_tab.ui_tab_sel');
-        return userTitle.textContent.trim();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+console.log('Начинаем сбор музыки VK...');
+
+let previousCount = 0;
+let unchanged = 0;
+
+for (let i = 0; i < 150; i++) {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    await delay(1000);
+
+    const count = document.querySelectorAll(
+        '[data-testid="MusicTrackRow_Info"]'
+    ).length;
+
+    console.log(`Попытка ${i + 1}: найдено строк ${count}`);
+
+    if (count === previousCount) {
+        unchanged++;
+    } else {
+        unchanged = 0;
     }
-  
-    await loadFullPlaylist();
-    const list = parsePlaylist();
-    const playlistTitle = getPlaylistTitle();
-    saveToFile(`${playlistTitle} (created by github.com_tangenx).txt`, list.join('\n'));
+
+    previousCount = count;
+
+    if (unchanged >= 5) break;
+}
+
+const tracks = parseTracks();
+
+console.log('Итого треков:', tracks.length);
+console.table(tracks);
+
+if (!tracks.length) {
+    console.error('Треки не найдены. Проверь разметку MusicTrackRow_Info.');
+    return;
+}
+
+const filename = 'VK Music.txt';
+saveToFile(filename, tracks.join('\n'));
+
+console.log('Файл подготовлен:', filename);
+
 })();
